@@ -21,7 +21,8 @@
 //Filename    : OMOUSE.CPP
 //Description : Mouse handling Object
 
-#ifdef GERMAN
+//#if( !defined(GERMAN) && !defined(FRENCH) && !defined(SPANISH))
+
 
 #include <ALL.h>
 #include <OSYS.h>
@@ -41,8 +42,12 @@
 
 #define VGA_UPDATE_BUF_SIZE	(100*100)		// 100 x 100
 
-// define the graphic key scan code
-#define CDIK_GRAPH 0x68
+//define the graphic key scan code for German locale
+//also allocate virtual key code for graph key
+#ifdef GERMAN
+	#define CDIK_GRAPH 0x68
+	static unsigned vk_graph = 0;
+#endif
 
 //--------- Define Click Threshold -----------//
 //
@@ -54,7 +59,6 @@
 //--------------------------------------------//
 
 static DWORD click_threshold = (LONG)(0.3 * 1000);
-static unsigned vk_graph = 0;		// virtual key code for Graph key
 
 //------- Define static functions -----------//
 
@@ -228,7 +232,11 @@ void Mouse::init(HINSTANCE hinst, HWND hwnd, LPDIRECTINPUT createdDirectInput)
 	if(GetKeyState(VK_LMENU) < 0)
 		skey_state |= LEFT_ALT_KEY_MASK;
 	if(GetKeyState(VK_RMENU) < 0)
+	#if( !defined(FRENCH) && !defined(SPANISH) )
 		skey_state |= RIGHT_ALT_KEY_MASK;
+	#else
+		skey_state |= GRAPH_KEY_MASK;
+	#endif
 	if(GetKeyState(VK_NUMLOCK) & 1)
 		skey_state |= NUM_LOCK_STATE_MASK;
 	if(GetKeyState(VK_CAPITAL) & 1)
@@ -237,13 +245,16 @@ void Mouse::init(HINSTANCE hinst, HWND hwnd, LPDIRECTINPUT createdDirectInput)
 		skey_state |= SCROLL_LOCK_STATE_MASK;
 	skey_state |= INSERT_STATE_MASK;		// enable insert mode by default
 
-	// find the virtual key code of graph key
-	vk_graph = MapVirtualKey(CDIK_GRAPH, 3 );		// convert scan code to virtual key code
-	if( vk_graph )
-	{
-		if(GetKeyState(vk_graph) < 0)
-			skey_state |= GRAPH_KEY_MASK;		
-	}
+	//find the virtual key code of the graph key for german
+	#ifdef GERMAN
+		vk_graph = MapVirtualKey(CDIK_GRAPH,3);
+		if(vk_graph)
+		{
+			if(GetKeyState(vk_graph) < 0
+				skey_state |= GRAPH_KEY_MASK;
+		}
+	#endif
+	
 	//------- initialize VGA update buffer -------//
 
 	vga_update_buf = mem_add( VGA_UPDATE_BUF_SIZE );
@@ -970,6 +981,7 @@ void Mouse::poll_event()
 			{
 				if (mouseMsg->dwOfs == DIMOFS_BUTTON0)
 				{
+
 					if( mouseMsg->dwData & 0x80)
 					{
 						// mouse button pressed
@@ -1030,6 +1042,7 @@ void Mouse::poll_event()
 				}
 				else if (mouseMsg->dwOfs == DIMOFS_BUTTON3)
 				{
+
 					// not interested
 				}
 				else if (mouseMsg->dwOfs == DIMOFS_X)
@@ -1061,11 +1074,6 @@ void Mouse::poll_event()
 			{
 				// trap keys, such as shift, ctrl, alt, numlock, caplock and scrolllock
 				// add to event if the key is none of the above
-
-				// for english to emulate <alt graph> key
-				//if( keybMsg->dwOfs == DIK_RMENU )
-				//	keybMsg->dwOfs = CDIK_GRAPH;
-
 				switch( keybMsg->dwOfs )
 				{
 				case DIK_LSHIFT:
@@ -1125,12 +1133,14 @@ void Mouse::poll_event()
 						add_key_event(keybMsg->dwOfs, keybMsg->dwTimeStamp);
 					}
 					break;
-				case CDIK_GRAPH:		// graphic key
+				#ifdef GERMAN
+				case CDIK_GRAPH: //graphic key
 					if( keybMsg->dwData & 0x80 )
 						skey_state |= GRAPH_KEY_MASK;
 					else
 						skey_state &= ~GRAPH_KEY_MASK;
 					break;
+				#endif
 				default:
 					if( keybMsg->dwData & 0x80 )
 					{
@@ -1187,11 +1197,13 @@ void Mouse::update_skey_state()
 	if(GetKeyState(VK_SCROLL) & 1)
 		skey_state |= SCROLL_LOCK_STATE_MASK;
 	skey_state |= INSERT_STATE_MASK;		// enable insert mode by default
-	if( vk_graph )
+	#ifdef GERMAN
+	if(vk_graph)
 	{
 		if(GetKeyState(vk_graph) < 0)
-			skey_state |= GRAPH_KEY_MASK;		
+			skey_state |= GRAPH_KEY_MASK;
 	}
+	#endif
 }
 //--------- End of Mouse::update_skey_state ----------//
 // ####### end Gilbert 31/10 #########//
@@ -1290,43 +1302,126 @@ long Mouse::micky_to_displacement(DWORD w)
 //
 int Mouse::is_key(unsigned scanCode, unsigned short skeyState, unsigned short charValue, unsigned flags)
 {
+	#if( !defined(GERMAN) && !defined(FRENCH) && !defined(SPANISH))
+	unsigned short priChar = 0, shiftChar = 0, capitalChar = 0;
+	#else
 	unsigned short priChar = 0, shiftChar = 0, capitalChar = 0, altChar = 0;
+	#endif
 	unsigned onNumPad = 0;
 
 	switch(scanCode)
 	{
+	//common key's here, same to all keyboards
+	
+	#if( !defined(GERMAN) && !defined(FRENCH) && !defined(SPANISH))
+		//english keyboards
+	case DIK_2: priChar = capitalChar = '2'; shiftChar = '@'; break;
+	case DIK_3: priChar = capitalChar = '3'; shiftChar = '#'; break;
+	case DIK_6: priChar = capitalChar = '6'; shiftChar = '^'; break;
+	case DIK_7: priChar = capitalChar = '7'; shiftChar = '&'; break;
+	case DIK_8: priChar = capitalChar = '8'; shiftChar = '*'; break;
+	case DIK_9: priChar = capitalChar = '9'; shiftChar = '('; break;
+	case DIK_0: priChar = capitalChar = '0'; shiftChar = ')'; break;
+	case DIK_MINUS: priChar = capitalChar = '-'; shiftChar = '_'; break;
+	case DIK_EQUALS: priChar = capitalChar = '='; shiftChar = '+'; break;
+	case DIK_Q: priChar = 'q'; capitalChar = shiftChar = 'Q'; break;
+	case DIK_Y: priChar = 'y'; capitalChar = shiftChar = 'Y'; break;
+	case DIK_LBRACKET: priChar = capitalChar = '['; shiftChar = '{'; break;
+	case DIK_RBRACKET: priChar = capitalChar = ']'; shiftChar = '}'; break;
+	case DIK_SEMICOLON: priChar = capitalChar = ';'; shiftChar = ':'; break;
+	case DIK_APOSTROPHE: priChar = capitalChar = '\''; shiftChar = '\"'; break;
+	case DIK_GRAVE: priChar = capitalChar = '~'; shiftChar = '`'; break;
+	case DIK_BACKSLASH: priChar = capitalChar = '\\'; shiftChar = '|'; break;
+	case DIK_Z: priChar = 'z'; capitalChar = shiftChar = 'Z'; break;
+	case DIK_M: priChar = 'm'; capitalChar = shiftChar = 'M'; break;
+	case DIK_COMMA: priChar = capitalChar = ','; shiftChar = '<'; break;
+	case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = '>'; break;
+	case DIK_SLASH: priChar = capitalChar = '/'; shiftChar = '\?'; break;
+	#else
+		#if defined FRENCH
+		//french keyboards
+		case DIK_2: priChar = capitalChar = '2'; shiftChar = '\"'; altChar = '@'; break;
+		case DIK_3: priChar = capitalChar = '3'; shiftChar = '/'; altChar = (UCHAR)'£'; break;
+		case DIK_6: priChar = capitalChar = '6'; shiftChar = '?'; altChar = (UCHAR)'¬';break;
+		case 0x1a:  priChar = capitalChar = shiftChar = '^'; altChar = '['; break;
+		case 0x1b:  priChar = capitalChar = (UCHAR)'¸';shiftChar = (UCHAR)'¨'; altChar = ']'; break;
+		case DIK_SEMICOLON: priChar = capitalChar = ';'; shiftChar = ':'; altChar = '~'; break;
+		case 0x28:  priChar = capitalChar = shiftChar = '`'; altChar = '{'; break;
+		case 0x29:  priChar = capitalChar = '#'; shiftChar = '|'; altChar = '\\'; break;
+		case 0x2b:  priChar = capitalChar = '<'; shiftChar = '>'; altChar = '}'; break;
+		case DIK_COMMA: priChar = capitalChar = ','; shiftChar = '\''; altChar = (UCHAR)'¯'; break;
+		case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = '\"'; altChar = (UCHAR)'­'; break;
+		case 0x35:  priChar = (UCHAR)'é'; capitalChar = shiftChar = (UCHAR)'É'; altChar = (UCHAR)'´'; break;
+		#elif defined GERMAN
+		//german keyboards
+		case DIK_2: priChar = capitalChar = '2'; shiftChar = '\"'; altChar = (UCHAR)'²'; break;
+		case DIK_3: priChar = capitalChar = '3'; shiftChar = (UCHAR)'§'; altChar = (UCHAR)'³'; break;
+		case DIK_6: priChar = capitalChar = '6'; shiftChar = '&'; break;
+		case DIK_7: priChar = capitalChar = '7'; shiftChar = '/'; altChar = '{'; break;
+		case DIK_8: priChar = capitalChar = '8'; shiftChar = '('; altChar = '['; break;
+		case DIK_9: priChar = capitalChar = '9'; shiftChar = ')'; altChar = ']'; break;
+		case DIK_0: priChar = capitalChar = '0'; shiftChar = '='; altChar = '}'; break;
+		case 0x0c:  priChar = capitalChar = (UCHAR)'ß'; shiftChar = '\?'; altChar = '\\'; break;
+		case 0x0d:  priChar = capitalChar = (UCHAR)'´'; shiftChar = (UCHAR)'`'; break;
+		case DIK_Q: priChar = 'q'; capitalChar = shiftChar = 'Q'; altChar = '@'; break;
+		case 0x15:  priChar = 'z'; capitalChar = shiftChar = 'Z'; break;
+		case 0x1a:  priChar = (UCHAR)'ü'; capitalChar = shiftChar = (UCHAR)'Ü'; break;
+		case 0x1b:  priChar = capitalChar = shiftChar = '+'; altChar = '~'; break;
+		case 0x27:  priChar = (UCHAR)'ö'; capitalChar = shiftChar = (UCHAR)'Ö'; break;
+		case 0x28:  priChar = (UCHAR)'ä'; capitalChar = shiftChar = (UCHAR)'Ä'; break;
+		case 0x29:  priChar = capitalChar = '^'; shiftChar = (UCHAR)'°'; break;
+		case 0x2b:  priChar = capitalChar = '#'; shiftChar = '\''; break;
+		case 0x2c:  priChar = 'y'; capitalChar = shiftChar = 'Y'; break;
+		case DIK_M: priChar = 'm'; capitalChar = shiftChar = 'M'; altChar = (UCHAR)'µ'; break;
+		case DIK_COMMA: priChar = capitalChar = ','; shiftChar = ';'; break;
+		case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = ':'; break;
+		case 0x35:  priChar = capitalChar = '-'; shiftChar = '_'; break;
+		case 0x56:  priChar = capitalChar = '<'; shiftChar = '>'; altChar = '|'; break;
+		case 0x67:		// fall through, German keyboard called "Pos 1"
+		#elif defined SPANISH
+		//spanish keyboards
+		case DIK_1: priChar = capitalChar = '1'; shiftChar = '!'; altChar = '|'; break;
+		case DIK_2: priChar = capitalChar = '2'; shiftChar = '\"'; altChar = '@'; break;
+		case DIK_3: priChar = capitalChar = '3'; shiftChar = (UCHAR)'·'; altChar = '#'; break;
+		case DIK_6: priChar = capitalChar = '6'; shiftChar = '&'; break;
+		case DIK_7: priChar = capitalChar = '7'; shiftChar = '/'; break;
+		case DIK_8: priChar = capitalChar = '8'; shiftChar = '('; break;
+		case DIK_9: priChar = capitalChar = '9'; shiftChar = ')'; break;
+		case DIK_0: priChar = capitalChar = '0'; shiftChar = '='; break;
+		case 0x0c:  priChar = capitalChar = '\''; shiftChar = '?'; break;
+		case 0x0d:  priChar = capitalChar = (UCHAR)'¡'; shiftChar = (UCHAR)'¿'; break;
+		case 0x1a:  priChar = capitalChar = '`'; shiftChar = '^'; altChar = '['; break;
+		case 0x1b:  priChar = capitalChar = '+';shiftChar = '*'; altChar = ']'; break;
+		case 0x27:  priChar = (UCHAR)'ñ'; capitalChar = shiftChar = (UCHAR)'Ñ'; break;
+		case 0x28:  priChar = capitalChar = (UCHAR)'´'; shiftChar = (UCHAR)'¨'; altChar = '{'; break;
+		case 0x29:  priChar = capitalChar = (UCHAR)'º'; shiftChar = (UCHAR)'ª'; altChar = '\\'; break;
+		case 0x2b:  priChar = (UCHAR)'ç'; capitalChar = shiftChar = (UCHAR)'Ç'; altChar = '}'; break;
+		case DIK_COMMA: priChar = capitalChar = ','; shiftChar = ';'; break;
+		case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = ':'; break;
+		case 0x35:  priChar = capitalChar = '-'; shiftChar = '_'; break;
+		case 0x56: priChar = capitalChar = '<'; shiftChar = '>'; break;
+		#endif	
+	#endif
+	
 	case DIK_ESCAPE: priChar = shiftChar = capitalChar = KEY_ESC; break;
 	case DIK_1: priChar = capitalChar = '1'; shiftChar = '!'; break;
-	case DIK_2: priChar = capitalChar = '2'; shiftChar = '\"'; altChar = (UCHAR)'²'; break;
-	case DIK_3: priChar = capitalChar = '3'; shiftChar = (UCHAR)'§'; altChar = (UCHAR)'³'; break;
+
+	case DIK_3: priChar = capitalChar = '3'; shiftChar = '#'; break;
 	case DIK_4: priChar = capitalChar = '4'; shiftChar = '$'; break;
 	case DIK_5: priChar = capitalChar = '5'; shiftChar = '%'; break;
-	case DIK_6: priChar = capitalChar = '6'; shiftChar = '&'; break;
-	case DIK_7: priChar = capitalChar = '7'; shiftChar = '/'; altChar = '{'; break;
-	case DIK_8: priChar = capitalChar = '8'; shiftChar = '('; altChar = '['; break;
-	case DIK_9: priChar = capitalChar = '9'; shiftChar = ')'; altChar = ']'; break;
-	case DIK_0: priChar = capitalChar = '0'; shiftChar = '='; altChar = '}'; break;
-//	case DIK_MINUS: priChar = capitalChar = '-'; shiftChar = '_'; break;
-	case 0x0c:  priChar = capitalChar = (UCHAR)'ß'; shiftChar = '\?'; altChar = '\\'; break;
-//	case DIK_EQUALS: priChar = capitalChar = '='; shiftChar = '+'; break;
-	case 0x0d:  priChar = capitalChar = (UCHAR)'´'; shiftChar = (UCHAR)'`'; break;
 	case DIK_BACK: priChar = capitalChar = shiftChar = KEY_BACK_SPACE; break;   // backspace
 	case DIK_TAB: priChar = capitalChar = shiftChar = KEY_TAB; break;
-	case DIK_Q: priChar = 'q'; capitalChar = shiftChar = 'Q'; altChar = '@'; break;
+
 	case DIK_W: priChar = 'w'; capitalChar = shiftChar = 'W'; break;
 	case DIK_E: priChar = 'e'; capitalChar = shiftChar = 'E'; break;
 	case DIK_R: priChar = 'r'; capitalChar = shiftChar = 'R'; break;
 	case DIK_T: priChar = 't'; capitalChar = shiftChar = 'T'; break;
-//	case DIK_Y: priChar = 'y'; capitalChar = shiftChar = 'Y'; break;
-	case 0x15:  priChar = 'z'; capitalChar = shiftChar = 'Z'; break;
 	case DIK_U: priChar = 'u'; capitalChar = shiftChar = 'U'; break;
 	case DIK_I: priChar = 'i'; capitalChar = shiftChar = 'I'; break;
 	case DIK_O: priChar = 'o'; capitalChar = shiftChar = 'O'; break;
 	case DIK_P: priChar = 'p'; capitalChar = shiftChar = 'P'; break;
-//	case DIK_LBRACKET: priChar = capitalChar = '['; shiftChar = '{'; break;
-	case 0x1a:  priChar = (UCHAR)'ü'; capitalChar = shiftChar = (UCHAR)'Ü'; break;
-//	case DIK_RBRACKET: priChar = capitalChar = ']'; shiftChar = '}'; break;
-	case 0x1b:  priChar = capitalChar = shiftChar = '+'; altChar = '~'; break;
+
+
 	case DIK_NUMPADENTER:		// Enter on numeric keypad
 		onNumPad = 1;			// fall through
 	case DIK_RETURN: priChar = capitalChar = shiftChar = KEY_RETURN;	break;
@@ -1339,35 +1434,17 @@ int Mouse::is_key(unsigned scanCode, unsigned short skeyState, unsigned short ch
 	case DIK_J: priChar = 'j'; capitalChar = shiftChar = 'J'; break;
 	case DIK_K: priChar = 'k'; capitalChar = shiftChar = 'K'; break;
 	case DIK_L: priChar = 'l'; capitalChar = shiftChar = 'L'; break;
-//	case DIK_SEMICOLON: priChar = capitalChar = ';'; shiftChar = ':'; break;
-	case 0x27:  priChar = (UCHAR)'ö'; capitalChar = shiftChar = (UCHAR)'Ö'; break;
-//	case DIK_APOSTROPHE: priChar = capitalChar = '\''; shiftChar = '\"'; break;
-	case 0x28:  priChar = (UCHAR)'ä'; capitalChar = shiftChar = (UCHAR)'Ä'; break;
-//	case DIK_GRAVE: priChar = capitalChar = '`'; shiftChar = '~'; break;
-	case 0x29:  priChar = capitalChar = '^'; shiftChar = (UCHAR)'°'; break;
-//	case DIK_BACKSLASH: priChar = capitalChar = '\\'; shiftChar = '|'; break;
-	case 0x2b:  priChar = capitalChar = '#'; shiftChar = '\''; break;
-//	case DIK_Z: priChar = 'z'; capitalChar = shiftChar = 'Z'; break;
-	case 0x2c:  priChar = 'y'; capitalChar = shiftChar = 'Y'; break;
 	case DIK_X: priChar = 'x'; capitalChar = shiftChar = 'X'; break;
 	case DIK_C: priChar = 'c'; capitalChar = shiftChar = 'C'; break;
 	case DIK_V: priChar = 'v'; capitalChar = shiftChar = 'V'; break;
 	case DIK_B: priChar = 'b'; capitalChar = shiftChar = 'B'; break;
 	case DIK_N: priChar = 'n'; capitalChar = shiftChar = 'N'; break;
-	case DIK_M: priChar = 'm'; capitalChar = shiftChar = 'M'; altChar = (UCHAR)'µ'; break;
-//	case DIK_COMMA: priChar = capitalChar = ','; shiftChar = '<'; break;
-	case DIK_COMMA: priChar = capitalChar = ','; shiftChar = ';'; break;
-//	case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = '>'; break;
-	case DIK_PERIOD: priChar = capitalChar = '.'; shiftChar = ':'; break;
-//	case DIK_SLASH: priChar = capitalChar = '/'; shiftChar = '\?'; break;
-	case 0x35:  priChar = capitalChar = '-'; shiftChar = '_'; break;
 	case DIK_MULTIPLY: priChar = capitalChar = shiftChar = '*'; onNumPad = 1; break; // * on numeric keypad
 	case DIK_SPACE: priChar = capitalChar = shiftChar = ' '; break;
 	case DIK_ADD: priChar = capitalChar = shiftChar = '+'; onNumPad = 1; break; // + on numeric keypad
 	case DIK_DIVIDE: priChar = capitalChar = shiftChar = '/'; onNumPad = 1; break;		// / on numeric keypad
 	case DIK_SUBTRACT: priChar = capitalChar = shiftChar = '-'; onNumPad = 1; break;	// - on numeric keypad
-	case 0x56:  priChar = capitalChar = '<'; shiftChar = '>'; altChar = '|'; break;
-
+		
 	case DIK_NUMPAD7: priChar = shiftChar = capitalChar = '7'; onNumPad = 1; break;
 	case DIK_NUMPAD8: priChar = shiftChar = capitalChar = '8'; onNumPad = 1; break;
 	case DIK_NUMPAD9: priChar = shiftChar = capitalChar = '9'; onNumPad = 1; break;
@@ -1395,7 +1472,6 @@ int Mouse::is_key(unsigned scanCode, unsigned short skeyState, unsigned short ch
 	case DIK_F12: priChar = shiftChar = capitalChar = KEY_F12; break;
 
 	// arrow keys
-	case 0x67:		// fall through, German keyboard called "Pos 1"
 	case DIK_HOME: priChar = shiftChar = capitalChar = KEY_HOME; break;
 	case DIK_UP: priChar = shiftChar = capitalChar = KEY_UP; break;
 	case DIK_PRIOR: priChar = shiftChar = capitalChar = KEY_PGUP; break;
@@ -1483,27 +1559,31 @@ int Mouse::is_key(unsigned scanCode, unsigned short skeyState, unsigned short ch
 	unsigned outChar = priChar;
 	if( flags & K_TRANSLATE_KEY ) 
 	{
-		if( (skeyState & GRAPH_KEY_MASK) && altChar )
+
+	#if( defined(GERMAN) || defined(FRENCH) || defined(SPANISH))
+	if( (skeyState & GRAPH_KEY_MASK) && altChar )
+	{
+		outChar = altChar;
+	}
+	else
+	{
+	#endif
+		if( priChar == capitalChar )
 		{
-			outChar = altChar;
+			// non-letter
+			outChar = skeyState & SHIFT_KEY_MASK ? shiftChar : priChar;
 		}
 		else
 		{
-			if( priChar == capitalChar )
-			{
-				// non-letter
-				outChar = skeyState & SHIFT_KEY_MASK ? shiftChar : priChar;
-			}
-			else
-			{
-				// letter
-				outChar = skeyState & CAP_LOCK_STATE_MASK ? 
-					(skeyState & SHIFT_KEY_MASK ? priChar : capitalChar) :
-					(skeyState & SHIFT_KEY_MASK ? shiftChar : priChar) ;
-			}
+			// letter
+			outChar = skeyState & CAP_LOCK_STATE_MASK ? 
+				(skeyState & SHIFT_KEY_MASK ? priChar : capitalChar) :
+				(skeyState & SHIFT_KEY_MASK ? shiftChar : priChar) ;
 		}
 	}
-
+	#if( defined(GERMAN) || defined(FRENCH) || defined(SPANISH))
+	}
+	#endif
 	if(!retFlag)
 		return 0;
 
