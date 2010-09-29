@@ -75,58 +75,77 @@ struct SDLPlayer
 class MultiPlayerSDL
 {
 private:
-	int						init_flag;
-	int						lobbied_flag;
-	ProtocolType			supported_protocols;
-	DynArrayB				current_sessions;
-	SDLSessionDesc			joined_session;
 
-	uint32_t				my_player_id;
-	int						host_flag;
-	DynArrayB				player_pool;
+	int               init_flag;
+	int               lobbied_flag;
+	ProtocolType      supported_protocols;
+	DynArrayB         current_sessions;
+	SDLSessionDesc    joined_session;
 
-	char *					recv_buffer;
-	uint32_t				recv_buffer_size;
+	uint32_t          my_player_id;
+	int               host_flag;
+	DynArrayB         player_pool;
+
+	char *            recv_buffer;
+	uint32_t          recv_buffer_size;
+
+	IPaddress         ip_address;
+	TCPsocket         data_sock;
+	TCPsocket         listen_sock; // used by server
+	SDLNet_SocketSet  sock_set;
 
 public:
+
 	MultiPlayerSDL();
 	~MultiPlayerSDL();
 
-	void init(ProtocolType);
-	void deinit();
-	bool is_initialized() const { return init_flag != 0; }
+	void   init(ProtocolType);
+	void   deinit();
+	bool   is_initialized() const { return init_flag != 0; }
 
-	// ------- functions on DirectPlayLobby -------- //
-	void	init_lobbied(int maxPlayers, char *cmdLine);
-	int	is_lobbied();		// return 0=not lobbied, 1=auto create, 2=auto join, 4=selectable
-	char *get_lobbied_name();			// return 0 if not available
+	// ------- functions on lobby -------- //
+	void   init_lobbied(int maxPlayers, char * cmdLine);
+	int    is_lobbied(); // return 0=not lobbied, 1=auto create, 2=auto join, 4=selectable
+	char * get_lobbied_name(); // return 0 if not available
 
-	// ------- functions on service provider ------ //
+	// ------- functions on network protocols ------ //
 	void   poll_supported_protocols(); // can be called before init
 	bool   is_protocol_supported(ProtocolType);
 
 	// ------- functions on session --------//
-	int	poll_sessions();
-	void	sort_sessions(int sortType);
-	SDLSessionDesc *get_session(int i);
-	int	create_session(char *sessionName, int maxPlayers);
-	int	join_session(int currentSessionIndex );
-	void	close_session();
-	void	disable_join_session();		// so that new player cannot join
+	int    poll_sessions();
+	void   sort_sessions(int sortType);
+	int    create_session(char * sessionName, int maxPlayers);
+	int    join_session(int i);
+	void   close_session();
+	void   disable_join_session();
+	void   accept_connections();
+	SDLSessionDesc * get_session(int i);
 
 	// -------- functions on player management -------//
-	int	create_player(char *friendlyName, char *formalName);
-	void	poll_players();
-	SDLPlayer *get_player(int i);
-	SDLPlayer *search_player(uint32_t player_id);
-	int	is_player_connecting(uint32_t playerId);
-	int       get_player_count() const { return player_pool.size(); }
-	uint32_t  get_my_player_id() const { return my_player_id; }
+	int         create_player(char * friendlyName, char * formalName);
+	void        poll_players();
+	SDLPlayer * get_player(int i);
+	SDLPlayer * search_player(uint32_t playerId);
+	int         is_player_connecting(uint32_t playerId);
+	int         get_player_count() const { return player_pool.size(); }
+	uint32_t    get_my_player_id() const { return my_player_id; }
 
 	// ------- functions on message passing ------//
-	int	send(uint32_t toId, void * lpData, uint32_t dataSize);
-	int	send_stream(uint32_t toId, void * lpData, uint32_t dataSize);
-	char *receive(uint32_t * from, uint32_t * to, uint32_t * recvLen, int *sysMsgCount=0);
+	int    send(uint32_t toId, void * data, uint32_t size);
+	int    send_stream(uint32_t toId, void * data, uint32_t size);
+	char * receive(uint32_t * from, uint32_t * to, uint32_t * size, int *sysMsgCount=0);
+
+private:
+
+	char * receive_raw(uint32_t * from, uint32_t * to, uint32_t * size);
+	void   process_sys_msg(uint32_t size, char * data);
+
+	// sys message processing
+	void send_session_info_request();
+	void process_session_info_request();
+	void send_session_info_reply();
+	void process_session_info_reply(char * data);
 };
 
 extern MultiPlayerSDL mp_sdl;
